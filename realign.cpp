@@ -349,6 +349,49 @@ int main (int argc, char** argv) {
         ++i;
     }
 
+    // retrieve header information
+    map<string, string> readGroupToSampleNames;
+
+    string bamHeader = reader.GetHeaderText();
+
+    vector<string> headerLines = split(bamHeader, '\n');
+
+    for (vector<string>::const_iterator it = headerLines.begin(); it != headerLines.end(); ++it) {
+
+        // get next line from header, skip if empty
+        string headerLine = *it;
+        if ( headerLine.empty() ) { continue; }
+
+        // lines of the header look like:
+        // "@RG     ID:-    SM:NA11832      CN:BCM  PL:454"
+        //                     ^^^^^^^\ is our sample name
+        if ( headerLine.find("@RG") == 0 ) {
+            vector<string> readGroupParts = split(headerLine, "\t ");
+            string name = "";
+            string readGroupID = "";
+            for (vector<string>::const_iterator r = readGroupParts.begin(); r != readGroupParts.end(); ++r) {
+                vector<string> nameParts = split(*r, ":");
+                if (nameParts.at(0) == "SM") {
+                   name = nameParts.at(1);
+                } else if (nameParts.at(0) == "ID") {
+                   readGroupID = nameParts.at(1);
+                }
+            }
+            if (name == "") {
+                cerr << " could not find SM: in @RG tag " << endl << headerLine << endl;
+                return 1;
+            }
+            if (readGroupID == "") {
+                cerr << " could not find ID: in @RG tag " << endl << headerLine << endl;
+                return 1;
+            }
+            //string name = nameParts.back();
+            //mergedHeader.append(1, '\n');
+            //cerr << "found read group id " << readGroupID << " containing sample " << name << endl;
+            readGroupToSampleNames[readGroupID] = name;
+        }
+    }
+
     // groups reads by the +/- variance they represent relative to the reference
     map<int, vector<BamAlignment> > indelGroupsByVariance;
     //  pair<ins   , del>
@@ -472,16 +515,24 @@ int main (int argc, char** argv) {
             indelseq = indelseq.substr(1);
 
         cout << alignments.size() << " " << indelseq << endl;
-        int firstpos = alignments.front().Position;
+        BamAlignment& firstAlignment = alignments.front();
+        int firstpos = firstAlignment.Position;
+        int lastpos = firstAlignment.GetEndPosition();
         for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
-            string refseq = reference->getSubSequence(referenceIDToName[a->RefID], a->Position, a->AlignedBases.size());
-            int offset = 0;
-            for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
-                if (i->insertion) {
-                    refseq.insert(i->position - a->Position + offset, string(i->length, '-'));
-                    offset += i->length;
-                }
+            if (a->GetEndPosition() > lastpos)
+                lastpos = a->GetEndPosition();
+        }
+        int offset = 0;
+        string refseq = reference->getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos);
+        for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
+            if (i->insertion) {
+                refseq.insert(i->position - firstAlignment.Position + offset, string(i->length, '-'));
+                offset += i->length;
             }
+        }
+        cout << string(40, ' ') << refseq << endl;
+
+        for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
             stringstream cigar;
             for (vector<CigarOp>::const_iterator cigarIter = a->CigarData.begin();
                     cigarIter != a->CigarData.end(); ++cigarIter) {
@@ -490,8 +541,12 @@ int main (int argc, char** argv) {
             string cigarstr = cigar.str();
             string readGroup;
             a->GetTag("RG", readGroup);
-            cout << string(cigarstr.length() + readGroup.length() + 1, ' ') << "\t"  << string(a->Position - firstpos, ' ') << refseq << endl;
-            cout << readGroup << " " << cigarstr << "\t" << string(a->Position - firstpos, ' ') << a->AlignedBases << endl;
+            int pos = a->Position;
+            string& samplename = readGroupToSampleNames[readGroup];
+            int pad = 40 - (samplename.size() + cigarstr.size() + 1);
+            if (pad < 0) pad = 0;
+            cout << samplename << " " << cigarstr << string(pad, ' ')
+                 << string(pos - firstpos, ' ') << a->AlignedBases << endl;
         }
         cout << string(80, '-') << endl;
 

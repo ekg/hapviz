@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+#include <sstream>
 
 using namespace std;
 
@@ -19,7 +20,7 @@ public:
     { }
 };
 
-ostream& operator<<(ostream& out, IndelAllele& indel) {
+ostream& operator<<(ostream& out, const IndelAllele& indel) {
     string t = indel.insertion ? "i" : "d";
     out << t <<  ":" << indel.position << ":" << indel.sequence;
     return out;
@@ -37,17 +38,8 @@ bool operator!=(const IndelAllele& a, const IndelAllele& b) {
 }
 
 bool operator<(const IndelAllele& a, const IndelAllele& b) {
-    if (a == b)
-        return false;
-    if (!a.insertion && b.insertion) {
-        return true;
-    } else if (a.position < b.position) {
-        return true;
-    } else if (a.length < b.length) {
-        return true;
-    } else if (a.length == b.length) { 
-        return a.sequence < b.sequence;
-    } else {
-        return false;
-    }
+    ostringstream as, bs;
+    as << a;
+    bs << b;
+    return as.str() < bs.str();
 }
