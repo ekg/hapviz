@@ -18,6 +18,8 @@
 
 #include "IndelAllele.h"
 
+#include "levenshtein.h"
+
 using namespace std;
 using namespace BamTools;
 
@@ -207,8 +209,10 @@ void printSummary(char** argv) {
          << "options:" << endl 
          << "    -b, --bam           bam file to from which to extract reads" << endl
          << "                        (may also be specified as positional arguments)" << endl
-         << "    -o, --output-pefix  prefix for output bam files with grouped reads" << endl
          << "    -r, --region        region from which to extract grouped reads" << endl
+         << "    -v, --visualize     Print an ASCII-art style pileup for each read-haplotype group" << endl
+         << "    -a, --show-all      When visualizing, show all alignments, not just variant ones." << endl
+         << "    -o, --output-pefix  prefix for output bam files with grouped reads" << endl
          << "    -f, --reference     FASTA reference against which alignments have been aligned" << endl
          << "    -q, --min-base-quality" << endl
          << "                        minimum base quality required for all bases in a read" << endl
@@ -229,6 +233,9 @@ int main (int argc, char** argv) {
     string region_str = "";
     int minbaseq = 0;
     FastaReference* reference = NULL;
+    bool visualize = false;
+    bool realign = false;
+    bool showAllReads = false;
     
     if (argc == 1)
         printSummary(argv);
@@ -237,6 +244,8 @@ int main (int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
+            {"visualize", no_argument, 0, 'v'},
+            {"show-all", no_argument, 0, 'a'},
             {"bam",  required_argument, 0, 'b'},
             {"output-prefix",  required_argument, 0, 'o'},
             {"region", required_argument, 0, 'r'},
@@ -247,7 +256,7 @@ int main (int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "hfb:o:r:q:",
+        c = getopt_long (argc, argv, "hvafb:o:r:q:",
                          long_options, &option_index);
 
       /* Detect the end of the options. */
@@ -284,6 +293,14 @@ int main (int argc, char** argv) {
  
           case 'q':
             minbaseq = atoi(optarg);
+            break;
+
+          case 'a':
+            showAllReads = true;
+            break;
+ 
+          case 'v':
+            visualize = true;
             break;
  
           case 'h':
@@ -481,40 +498,134 @@ int main (int argc, char** argv) {
     // establish the haplotypes implied by these groups
     // realign all the reads against the haplotypes
     // and take the best (least-variant) alignment for each read
+    
+    if (visualize) {
+        for (AlignmentAlleleGrouping::iterator g = indelGroupsByInsDelSeq.begin();
+                g != indelGroupsByInsDelSeq.end(); ++g) {
 
-    // for now just print them out
+            vector<BamAlignment>& alignments = g->second;
+            vector<IndelAllele> indels = g->first;
 
-    for (AlignmentAlleleGrouping::iterator g = indelGroupsByInsDelSeq.begin();
-            g != indelGroupsByInsDelSeq.end(); ++g) {
+            stringstream indelsstream;
+            string indelseq;
+            bool inRegion = false;
 
-        vector<BamAlignment>& alignments = g->second;
-        vector<IndelAllele> indels = g->first;
+            // ignore reads without indels
+            if (!showAllReads && indels.empty()) {
+                continue;
+            } else {
+                inRegion = true;
+            }
 
-        // ignore reads without indels
-        if (indels.empty())
-            continue;
-
-        stringstream indelsstream;
-        string indelseq;
-        bool inRegion = false;
-        for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
-            indelsstream << "," << *i;
-            if (!region_str.empty()) {
-                if (i->position >= region.LeftPosition && i->position < region.RightPosition) {
-                    inRegion = true;
+            for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
+                indelsstream << "," << *i;
+                if (!region_str.empty()) {
+                    if (i->position >= region.LeftPosition && i->position < region.RightPosition) {
+                        inRegion = true;
+                    }
                 }
             }
+            if (region_str.empty())
+                inRegion = true;
+            if (!inRegion)
+                continue;
+
+            // indelseq is the indel allele specifier
+            indelseq = indelsstream.str();
+            if (!indelseq.empty())
+                indelseq = indelseq.substr(1);
+
+            cout << alignments.size() << " " << indelseq << endl;
+            BamAlignment& firstAlignment = alignments.front();
+            int firstpos = firstAlignment.Position;
+            int lastpos = firstAlignment.GetEndPosition();
+            for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
+                if (a->GetEndPosition() > lastpos)
+                    lastpos = a->GetEndPosition();
+            }
+            int offset = 0;
+            string refseq = reference->getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos + 1);
+            for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
+                if (i->insertion) {
+                    refseq.insert(i->position - firstAlignment.Position + offset, string(i->length, '-'));
+                    offset += i->length;
+                }
+            }
+            stringstream refposs;
+            refposs << firstpos;
+            string refpos = refposs.str();
+            cout << string(40 - 3 - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
+
+            for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
+                stringstream cigar;
+                for (vector<CigarOp>::const_iterator cigarIter = a->CigarData.begin();
+                        cigarIter != a->CigarData.end(); ++cigarIter) {
+                    cigar << cigarIter->Length << cigarIter->Type;
+                }
+                string cigarstr = cigar.str();
+                string readGroup;
+                a->GetTag("RG", readGroup);
+                int pos = a->Position;
+                string& samplename = readGroupToSampleNames[readGroup];
+                // hacky...
+                int pad = 40 - (samplename.size() + cigarstr.size() + 1);
+                if (pad < 0) pad = 1;
+                cout << samplename << " " << cigarstr << string(pad, ' ')
+                     << string(pos - firstpos, ' ') << a->AlignedBases << endl;
+            }
+            cout << string(80, '-') << endl;
+
         }
-        if (region_str.empty())
-            inRegion = true;
-        if (!inRegion)
-            continue;
+    }
 
-        indelseq = indelsstream.str();
-        if (!indelseq.empty())
-            indelseq = indelseq.substr(1);
+    if (realign) {
 
-        cout << alignments.size() << " " << indelseq << endl;
+        AlignmentAlleleGrouping::iterator biggestGroup = indelGroupsByInsDelSeq.begin();
+
+        for (AlignmentAlleleGrouping::iterator g = indelGroupsByInsDelSeq.begin();
+                g != indelGroupsByInsDelSeq.end(); ++g) {
+
+            vector<BamAlignment>& alignments = g->second;
+            vector<IndelAllele> indels = g->first;
+
+            // ignore reads without indels
+            if (indels.empty()) {
+                continue;
+            } else if (biggestGroup == indelGroupsByInsDelSeq.begin()) {
+                biggestGroup = g;
+            }
+            stringstream indelsstream;
+            string indelseq;
+            bool inRegion = false;
+            for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
+                indelsstream << "," << *i;
+                if (!region_str.empty()) {
+                    if (i->position >= region.LeftPosition && i->position < region.RightPosition) {
+                        inRegion = true;
+                    }
+                }
+            }
+            if (region_str.empty())
+                inRegion = true;
+            if (!inRegion)
+                continue;
+
+            indelseq = indelsstream.str();
+            if (!indelseq.empty())
+                indelseq = indelseq.substr(1);
+
+            if (alignments.size() > biggestGroup->second.size()) {
+                biggestGroup = g;
+            }
+
+        }
+
+        cerr << "biggest group size " << biggestGroup->second.size() << endl;
+        // establish the haplotype of this group
+
+        vector<BamAlignment>& alignments = biggestGroup->second;
+        vector<IndelAllele> indels = biggestGroup->first;
+
         BamAlignment& firstAlignment = alignments.front();
         int firstpos = firstAlignment.Position;
         int lastpos = firstAlignment.GetEndPosition();
@@ -523,33 +634,18 @@ int main (int argc, char** argv) {
                 lastpos = a->GetEndPosition();
         }
         int offset = 0;
-        string refseq = reference->getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos);
+        string haplotype = reference->getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos);
         for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
             if (i->insertion) {
-                refseq.insert(i->position - firstAlignment.Position + offset, string(i->length, '-'));
+                haplotype.insert(i->position - firstAlignment.Position + offset, i->sequence);
                 offset += i->length;
+            } else {
+                haplotype.erase(i->position - firstAlignment.Position + offset, i->length);
+                offset -= i->length;
             }
         }
-        cout << string(40, ' ') << refseq << endl;
 
-        for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
-            stringstream cigar;
-            for (vector<CigarOp>::const_iterator cigarIter = a->CigarData.begin();
-                    cigarIter != a->CigarData.end(); ++cigarIter) {
-                cigar << cigarIter->Length << cigarIter->Type;
-            }
-            string cigarstr = cigar.str();
-            string readGroup;
-            a->GetTag("RG", readGroup);
-            int pos = a->Position;
-            string& samplename = readGroupToSampleNames[readGroup];
-            int pad = 40 - (samplename.size() + cigarstr.size() + 1);
-            if (pad < 0) pad = 0;
-            cout << samplename << " " << cigarstr << string(pad, ' ')
-                 << string(pos - firstpos, ' ') << a->AlignedBases << endl;
-        }
-        cout << string(80, '-') << endl;
-
+        cerr << haplotype << endl;
     }
 
     /*

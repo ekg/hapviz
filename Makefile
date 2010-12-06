@@ -23,7 +23,8 @@ OBJECTS=BamAlignment.o \
 		Fasta.o \
 		BandedSmithWaterman.o \
 		SmithWatermanGotoh.o \
-		split.o
+		split.o \
+		levenshtein.o
 
 all: realign
 
@@ -61,6 +62,9 @@ SmithWatermanGotoh.o: SmithWatermanGotoh.cpp SmithWatermanGotoh.h
 
 split.o: split.h split.cpp
 	$(CC) $(CFLAGS) -c split.cpp
+
+levenshtein.o: levenshtein.cpp levenshtein.h
+	$(CC) $(CFLAGS) -c levenshtein.cpp
 
 realign: IndelAllele.h realign.o $(OBJECTS)
 	$(LDENV) $(CXX) $(CXXFLAGS) -o $@ realign.o $(OBJECTS) $(LDFLAGS) $(LIBS)
