@@ -236,6 +236,7 @@ int main (int argc, char** argv) {
     bool visualize = false;
     bool realign = false;
     bool showAllReads = false;
+    bool useStdin = false;
     
     if (argc == 1)
         printSummary(argv);
@@ -251,12 +252,13 @@ int main (int argc, char** argv) {
             {"region", required_argument, 0, 'r'},
             {"min-base-quality", required_argument, no_argument, 'q'},
             {"reference", required_argument, 0, 'f'},
+            {"stdin", no_argument, 0, 'c'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "hvafb:o:r:q:",
+        c = getopt_long (argc, argv, "hvcafb:o:r:q:",
                          long_options, &option_index);
 
       /* Detect the end of the options. */
@@ -301,6 +303,11 @@ int main (int argc, char** argv) {
  
           case 'v':
             visualize = true;
+            break;
+
+          case 'c':
+            useStdin = true;
+            bam_files.push_back("stdin");
             break;
  
           case 'h':
