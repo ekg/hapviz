@@ -26,7 +26,7 @@ OBJECTS=BamAlignment.o \
 		split.o \
 		levenshtein.o
 
-all: realign
+all: hapviz
 
 clean:
 	rm *.o
@@ -66,6 +66,8 @@ split.o: split.h split.cpp
 levenshtein.o: levenshtein.cpp levenshtein.h
 	$(CC) $(CFLAGS) -c levenshtein.cpp
 
-realign: IndelAllele.h realign.o $(OBJECTS)
-	$(LDENV) $(CXX) $(CXXFLAGS) -o $@ realign.o $(OBJECTS) $(LDFLAGS) $(LIBS)
+hapviz: IndelAllele.h hapviz.o $(OBJECTS)
+	$(LDENV) $(CXX) $(CXXFLAGS) -o $@ hapviz.o $(OBJECTS) $(LDFLAGS) $(LIBS)
 
+bamfiltertech: bamfiltertech.o $(OBJECTS)
+	$(LDENV) $(CXX) $(CXXFLAGS) -o $@ bamfiltertech.o $(OBJECTS) $(LDFLAGS) $(LIBS)

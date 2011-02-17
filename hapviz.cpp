@@ -210,16 +210,15 @@ void printSummary(char** argv) {
          << "    -b, --bam           bam file to from which to extract reads" << endl
          << "                        (may also be specified as positional arguments)" << endl
          << "    -r, --region        region from which to extract grouped reads" << endl
-         << "    -v, --visualize     Print an ASCII-art style pileup for each read-haplotype group" << endl
+         //<< "    -v, --visualize     Print an ASCII-art style pileup for each read-haplotype group" << endl
          << "    -a, --show-all      When visualizing, show all alignments, not just variant ones." << endl
-         << "    -o, --output-pefix  prefix for output bam files with grouped reads" << endl
+        // << "    -o, --output-pefix  prefix for output bam files with grouped reads" << endl
          << "    -f, --reference     FASTA reference against which alignments have been aligned" << endl
          << "    -q, --min-base-quality" << endl
          << "                        minimum base quality required for all bases in a read" << endl
          << endl
-        << "Realigns reads to the most-likely haplotypes, as suggested by the input set of reads." << endl
-        << "Outputs a BAM file of realigned reads on stdout." << endl
-        << endl;
+         << "Displays haplotype groups from the specified region across the BAM files provided as input." << endl
+         << endl;
     exit(0);
 }
 
@@ -233,11 +232,11 @@ int main (int argc, char** argv) {
     string region_str = "";
     int minbaseq = 0;
     FastaReference* reference = NULL;
-    bool visualize = false;
+    bool visualize = true;
     bool realign = false;
     bool showAllReads = false;
     bool useStdin = false;
-    
+
     if (argc == 1)
         printSummary(argv);
 
@@ -258,7 +257,7 @@ int main (int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "hvcafb:o:r:q:",
+        c = getopt_long (argc, argv, "hvcab:f:o:r:q:",
                          long_options, &option_index);
 
       /* Detect the end of the options. */
