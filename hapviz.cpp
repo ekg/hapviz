@@ -1,7 +1,6 @@
 #include <iostream>
 #include <getopt.h>
 #include <fstream>
-#include <iostream>
 #include <sstream>
 #include <signal.h>
 #include <stdlib.h>
@@ -231,7 +230,8 @@ int main (int argc, char** argv) {
     string output_prefix = "bamgroups";
     string region_str = "";
     int minbaseq = 0;
-    FastaReference* reference = NULL;
+    bool hasRef = false;
+    FastaReference reference;
     bool visualize = true;
     bool realign = false;
     bool showAllReads = false;
@@ -289,7 +289,8 @@ int main (int argc, char** argv) {
             break;
 
           case 'f':
-            reference = new FastaReference(optarg);
+            reference.open(optarg);
+            hasRef = true;
             break;
  
           case 'q':
@@ -333,7 +334,7 @@ int main (int argc, char** argv) {
     }
 
 
-    if (reference == NULL) {
+    if (!hasRef) {
         cerr << "you must supply a reference sequence (-f)" << endl;
         return 1;
     }
@@ -427,7 +428,7 @@ int main (int argc, char** argv) {
     // extract the groups of alignments
     while (reader.GetNextAlignment(alignment)) {
 
-        string referenceSequence = reference->getSubSequence(referenceIDToName[alignment.RefID], alignment.Position, alignment.GetEndPosition());
+        string referenceSequence = reference.getSubSequence(referenceIDToName[alignment.RefID], alignment.Position, alignment.GetEndPosition());
 
         // skip this alignment if we are not using duplicate reads (we remove them by default)
         // skip unmapped alignments, as they cannot be used in the algorithm
@@ -474,6 +475,11 @@ int main (int argc, char** argv) {
             // handle other cigar element types
             } else if (t == 'S') { // soft clip, clipped sequence present in the read not matching the reference
                 // skip these bases in the read
+                if (rp == 0) {
+                    alignment.QueryBases = alignment.QueryBases.substr(l);
+                } else {
+                    alignment.QueryBases = alignment.QueryBases.substr(0, alignment.QueryBases.size() - l);
+                }
                 rp += l;// sp += l; csp += l;
             } else if (t == 'H') { // hard clip on the read, clipped sequence is not present in the read
             } else if (t == 'N') { // skipped region in the reference not present in read, aka splice
@@ -550,7 +556,7 @@ int main (int argc, char** argv) {
                     lastpos = a->GetEndPosition();
             }
             int offset = 0;
-            string refseq = reference->getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos + 1);
+            string refseq = reference.getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos + 1);
             for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
                 if (i->insertion) {
                     refseq.insert(i->position - firstAlignment.Position + offset, string(i->length, '-'));
@@ -560,7 +566,7 @@ int main (int argc, char** argv) {
             stringstream refposs;
             refposs << firstpos;
             string refpos = refposs.str();
-            cout << string(40 - 3 - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
+            cout << string(20 - 3 - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
 
             for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
                 stringstream cigar;
@@ -568,18 +574,18 @@ int main (int argc, char** argv) {
                         cigarIter != a->CigarData.end(); ++cigarIter) {
                     cigar << cigarIter->Length << cigarIter->Type;
                 }
-                string cigarstr = cigar.str();
+                //string cigarstr = cigar.str();
                 string readGroup;
                 a->GetTag("RG", readGroup);
                 int pos = a->Position;
                 string& samplename = readGroupToSampleNames[readGroup];
                 // hacky...
-                int pad = 40 - (samplename.size() + cigarstr.size() + 1);
+                int pad = 20 - samplename.size();
                 if (pad < 0) pad = 1;
-                cout << samplename << " " << cigarstr << string(pad, ' ')
+                cout << samplename << string(pad, ' ')
                      << string(pos - firstpos, ' ') << a->AlignedBases << endl;
             }
-            cout << string(80, '-') << endl;
+            cout << endl;
 
         }
     }
@@ -640,7 +646,7 @@ int main (int argc, char** argv) {
                 lastpos = a->GetEndPosition();
         }
         int offset = 0;
-        string haplotype = reference->getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos);
+        string haplotype = reference.getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos);
         for (vector<IndelAllele>::iterator i = indels.begin(); i != indels.end(); ++i) {
             if (i->insertion) {
                 haplotype.insert(i->position - firstAlignment.Position + offset, i->sequence);
