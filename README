@@ -8,6 +8,7 @@ it all happens in the terminal!
     options:
         -b, --bam           bam file to from which to extract reads
                             (may also be specified as positional arguments)
+        -r, --region        region from which to extract grouped reads
         -a, --show-all      When visualizing, show all alignments, not just variant ones.
         -f, --reference     FASTA reference against which alignments have been aligned
         -q, --min-base-quality
