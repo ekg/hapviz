@@ -568,6 +568,7 @@ int main (int argc, char** argv) {
             string refpos = refposs.str();
             cout << string(20 - 3 - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
 
+            map<string, vector<string> > alignmentsBySample;
             for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
                 stringstream cigar;
                 for (vector<CigarOp>::const_iterator cigarIter = a->CigarData.begin();
@@ -580,11 +581,22 @@ int main (int argc, char** argv) {
                 int pos = a->Position;
                 string& samplename = readGroupToSampleNames[readGroup];
                 // hacky...
-                int pad = 20 - samplename.size();
+                int pad = 20 - (samplename.size() + 2);
                 if (pad < 0) pad = 1;
-                cout << samplename << string(pad, ' ')
-                     << string(pos - firstpos, ' ') << a->AlignedBases << endl;
+                stringstream alstr;
+                alstr << samplename << (a->IsReverseStrand() ? " -" : " +") << string(pad, ' ')
+                     << string(pos - firstpos, ' ') << a->AlignedBases;
+                alignmentsBySample[samplename].push_back(alstr.str());
             }
+
+            for (map<string, vector<string> >::iterator s = alignmentsBySample.begin(); s != alignmentsBySample.end(); ++s) {
+                vector<string>& aligns = s->second;
+                cout << endl;
+                for (vector<string>::iterator a = aligns.begin(); a != aligns.end(); ++a) {
+                    cout << *a << endl;
+                }
+            }
+
             cout << endl;
 
         }
