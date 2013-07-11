@@ -215,6 +215,7 @@ void printSummary(char** argv) {
          << "    -f, --reference     FASTA reference against which alignments have been aligned" << endl
          << "    -q, --min-base-quality" << endl
          << "                        minimum base quality required for all bases in a read" << endl
+	 << "    -H, --haplotypes    Write out haplotypes observed in the target region window" << endl
          << endl
          << "Displays haplotype groups from the specified region across the BAM files provided as input." << endl
          << endl;
@@ -233,6 +234,7 @@ int main (int argc, char** argv) {
     bool hasRef = false;
     FastaReference reference;
     bool visualize = true;
+    bool printHaplotypeCounts = false;
     bool realign = false;
     bool showAllReads = false;
     bool useStdin = false;
@@ -251,13 +253,14 @@ int main (int argc, char** argv) {
             {"region", required_argument, 0, 'r'},
             {"min-base-quality", required_argument, no_argument, 'q'},
             {"reference", required_argument, 0, 'f'},
+	    {"haplotype-counts", no_argument, 0, 'H'},
             {"stdin", no_argument, 0, 'c'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "hvcab:f:o:r:q:",
+        c = getopt_long (argc, argv, "hvHcab:f:o:r:q:",
                          long_options, &option_index);
 
       /* Detect the end of the options. */
@@ -287,6 +290,11 @@ int main (int argc, char** argv) {
           case 'r':
             region_str = optarg;
             break;
+
+          case 'H':
+	    visualize = false;
+	    printHaplotypeCounts = true;
+	    break;
 
           case 'f':
             reference.open(optarg);
@@ -357,6 +365,9 @@ int main (int argc, char** argv) {
     // set target region if specified
     BamRegion region;
     if (!region_str.empty()) {
+        if (region_str.find("-") != string::npos) {
+            region_str.replace(region_str.find("-"), 1, "..");
+        }
         ParseRegionString(region_str, reader, region);
         if (!reader.SetRegion(region)) {
             cerr << "Could not set region to " << region_str << endl;
@@ -475,11 +486,12 @@ int main (int argc, char** argv) {
             // handle other cigar element types
             } else if (t == 'S') { // soft clip, clipped sequence present in the read not matching the reference
                 // skip these bases in the read
+		/*
                 if (rp == 0) {
                     alignment.QueryBases = alignment.QueryBases.substr(l);
                 } else {
                     alignment.QueryBases = alignment.QueryBases.substr(0, alignment.QueryBases.size() - l);
-                }
+		}*/
                 rp += l;// sp += l; csp += l;
             } else if (t == 'H') { // hard clip on the read, clipped sequence is not present in the read
             } else if (t == 'N') { // skipped region in the reference not present in read, aka splice
@@ -511,7 +523,7 @@ int main (int argc, char** argv) {
     // realign all the reads against the haplotypes
     // and take the best (least-variant) alignment for each read
     
-    if (visualize) {
+    if (visualize || printHaplotypeCounts) {
         for (AlignmentAlleleGrouping::iterator g = indelGroupsByInsDelSeq.begin();
                 g != indelGroupsByInsDelSeq.end(); ++g) {
 
@@ -563,10 +575,20 @@ int main (int argc, char** argv) {
                     offset += i->length;
                 }
             }
+
+	    unsigned int maxReadNameSize = 0;
+            for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
+		if (a->Name.size() > maxReadNameSize) {
+		    maxReadNameSize = a->Name.size();
+		}
+	    }
+
             stringstream refposs;
             refposs << firstpos;
             string refpos = refposs.str();
-            cout << string(20 - 3 - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
+            if (visualize) {
+		cout << string(5 + maxReadNameSize - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
+	    }
 
             map<string, vector<string> > alignmentsBySample;
             for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
@@ -581,21 +603,25 @@ int main (int argc, char** argv) {
                 int pos = a->Position;
                 string& samplename = readGroupToSampleNames[readGroup];
                 // hacky...
-                int pad = 20 - (samplename.size() + 2);
+                int pad = (maxReadNameSize) - a->Name.size() +4;
                 if (pad < 0) pad = 1;
                 stringstream alstr;
-                alstr << samplename << (a->IsReverseStrand() ? " -" : " +") << string(pad, ' ')
+                alstr << a->Name << (a->IsFirstMate() ? ".1" : ".2") << (a->IsReverseStrand() ? " -" : " +") << string(pad, ' ')
                      << string(pos - firstpos, ' ') << a->AlignedBases;
                 alignmentsBySample[samplename].push_back(alstr.str());
             }
 
-            for (map<string, vector<string> >::iterator s = alignmentsBySample.begin(); s != alignmentsBySample.end(); ++s) {
-                vector<string>& aligns = s->second;
-                cout << endl;
-                for (vector<string>::iterator a = aligns.begin(); a != aligns.end(); ++a) {
-                    cout << *a << endl;
-                }
-            }
+	    if (visualize) {
+		for (map<string, vector<string> >::iterator s = alignmentsBySample.begin(); s != alignmentsBySample.end(); ++s) {
+		    const string& sampleName = s->first;
+		    vector<string>& aligns = s->second;
+		    cout << endl;
+		    cout << sampleName << endl;
+		    for (vector<string>::iterator a = aligns.begin(); a != aligns.end(); ++a) {
+			cout << *a << endl;
+		    }
+		}
+	    }
 
             cout << endl;
 
