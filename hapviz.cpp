@@ -65,9 +65,9 @@ void writeFastq(ostream& out, const BamAlignment& a) {
   
     // write to output stream
     out << "@" << name << endl
-          << sequence    << endl
-          << "+"         << endl
-          << qualities   << endl;
+        << sequence    << endl
+        << "+"         << endl
+        << qualities   << endl;
 }
 
 short qualityChar2ShortInt(char c) {
@@ -209,13 +209,13 @@ void printSummary(char** argv) {
          << "    -b, --bam           bam file to from which to extract reads" << endl
          << "                        (may also be specified as positional arguments)" << endl
          << "    -r, --region        region from which to extract grouped reads" << endl
-         //<< "    -v, --visualize     Print an ASCII-art style pileup for each read-haplotype group" << endl
+        //<< "    -v, --visualize     Print an ASCII-art style pileup for each read-haplotype group" << endl
          << "    -a, --show-all      When visualizing, show all alignments, not just variant ones." << endl
         // << "    -o, --output-pefix  prefix for output bam files with grouped reads" << endl
          << "    -f, --reference     FASTA reference against which alignments have been aligned" << endl
          << "    -q, --min-base-quality" << endl
          << "                        minimum base quality required for all bases in a read" << endl
-	 << "    -H, --haplotypes    Write out haplotypes observed in the target region window" << endl
+         << "    -H, --haplotypes    Write out haplotypes observed in the target region window" << endl
          << endl
          << "Displays haplotype groups from the specified region across the BAM files provided as input." << endl
          << endl;
@@ -244,95 +244,95 @@ int main (int argc, char** argv) {
 
     while (true) {
         static struct option long_options[] =
-        {
-            {"help", no_argument, 0, 'h'},
-            {"visualize", no_argument, 0, 'v'},
-            {"show-all", no_argument, 0, 'a'},
-            {"bam",  required_argument, 0, 'b'},
-            {"output-prefix",  required_argument, 0, 'o'},
-            {"region", required_argument, 0, 'r'},
-            {"min-base-quality", required_argument, no_argument, 'q'},
-            {"reference", required_argument, 0, 'f'},
-	    {"haplotype-counts", no_argument, 0, 'H'},
-            {"stdin", no_argument, 0, 'c'},
-            {0, 0, 0, 0}
-        };
+            {
+                {"help", no_argument, 0, 'h'},
+                {"visualize", no_argument, 0, 'v'},
+                {"show-all", no_argument, 0, 'a'},
+                {"bam",  required_argument, 0, 'b'},
+                {"output-prefix",  required_argument, 0, 'o'},
+                {"region", required_argument, 0, 'r'},
+                {"min-base-quality", required_argument, no_argument, 'q'},
+                {"reference", required_argument, 0, 'f'},
+                {"haplotype-counts", no_argument, 0, 'H'},
+                {"stdin", no_argument, 0, 'c'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
 
         c = getopt_long (argc, argv, "hvHcab:f:o:r:q:",
                          long_options, &option_index);
 
-      /* Detect the end of the options. */
-          if (c == -1)
+        /* Detect the end of the options. */
+        if (c == -1)
             break;
  
-          switch (c)
-            {
-            case 0:
+        switch (c)
+        {
+        case 0:
             /* If this option set a flag, do nothing else now. */
             if (long_options[option_index].flag != 0)
-              break;
+                break;
             printf ("option %s", long_options[option_index].name);
             if (optarg)
-              printf (" with arg %s", optarg);
+                printf (" with arg %s", optarg);
             printf ("\n");
             break;
 
-          case 'b':
+        case 'b':
             bam_files.push_back(optarg);
             break;
  
-          case 'o':
+        case 'o':
             output_prefix = optarg;
             break;
  
-          case 'r':
+        case 'r':
             region_str = optarg;
             break;
 
-          case 'H':
-	    visualize = false;
-	    printHaplotypeCounts = true;
-	    break;
+        case 'H':
+            visualize = false;
+            printHaplotypeCounts = true;
+            break;
 
-          case 'f':
+        case 'f':
             reference.open(optarg);
             hasRef = true;
             break;
  
-          case 'q':
+        case 'q':
             minbaseq = atoi(optarg);
             break;
 
-          case 'a':
+        case 'a':
             showAllReads = true;
             break;
  
-          case 'v':
+        case 'v':
             visualize = true;
             break;
 
-          case 'c':
+        case 'c':
             useStdin = true;
             bam_files.push_back("stdin");
             break;
  
-          case 'h':
+        case 'h':
             printSummary(argv);
             exit(0);
             break;
           
-          case '?':
+        case '?':
             /* getopt_long already printed an error message. */
             printSummary(argv);
             exit(1);
             break;
  
-          default:
+        default:
             abort ();
-          }
-      }
+        }
+    }
 
     // use rest of command-line arguments as BAM files
     if (optind < argc) {
@@ -347,6 +347,10 @@ int main (int argc, char** argv) {
         return 1;
     }
 
+    if (bam_files.empty()) {
+        useStdin = true;
+        bam_files.push_back("stdin");
+    }
 
     // open the listed BAM files
     BamMultiReader reader;
@@ -407,9 +411,9 @@ int main (int argc, char** argv) {
             for (vector<string>::const_iterator r = readGroupParts.begin(); r != readGroupParts.end(); ++r) {
                 vector<string> nameParts = split(*r, ":");
                 if (nameParts.at(0) == "SM") {
-                   name = nameParts.at(1);
+                    name = nameParts.at(1);
                 } else if (nameParts.at(0) == "ID") {
-                   readGroupID = nameParts.at(1);
+                    readGroupID = nameParts.at(1);
                 }
             }
             if (name == "") {
@@ -483,15 +487,15 @@ int main (int argc, char** argv) {
                 indels.push_back(IndelAllele(true, l, sp, alignment.QueryBases.substr(rp, l)));
                 rp += l;
 
-            // handle other cigar element types
+                // handle other cigar element types
             } else if (t == 'S') { // soft clip, clipped sequence present in the read not matching the reference
                 // skip these bases in the read
-		/*
-                if (rp == 0) {
-                    alignment.QueryBases = alignment.QueryBases.substr(l);
-                } else {
-                    alignment.QueryBases = alignment.QueryBases.substr(0, alignment.QueryBases.size() - l);
-		}*/
+                /*
+                  if (rp == 0) {
+                  alignment.QueryBases = alignment.QueryBases.substr(l);
+                  } else {
+                  alignment.QueryBases = alignment.QueryBases.substr(0, alignment.QueryBases.size() - l);
+                  }*/
                 rp += l;// sp += l; csp += l;
             } else if (t == 'H') { // hard clip on the read, clipped sequence is not present in the read
             } else if (t == 'N') { // skipped region in the reference not present in read, aka splice
@@ -503,15 +507,15 @@ int main (int argc, char** argv) {
 
 
         /*
-        int variance = 0;
+          int variance = 0;
 
-        for (vector<CigarOp>::const_iterator c = alignment.CigarData.begin(); c != alignment.CigarData.end(); ++c) {
-            if (c->Type == 'D')
-                variance -= c->Length;
-            if (c->Type == 'I')
-                variance += c->Length;
-        }
-        indelGroupsByVariance[variance].push_back(alignment);
+          for (vector<CigarOp>::const_iterator c = alignment.CigarData.begin(); c != alignment.CigarData.end(); ++c) {
+          if (c->Type == 'D')
+          variance -= c->Length;
+          if (c->Type == 'I')
+          variance += c->Length;
+          }
+          indelGroupsByVariance[variance].push_back(alignment);
         */
     }
 
@@ -525,7 +529,7 @@ int main (int argc, char** argv) {
     
     if (visualize || printHaplotypeCounts) {
         for (AlignmentAlleleGrouping::iterator g = indelGroupsByInsDelSeq.begin();
-                g != indelGroupsByInsDelSeq.end(); ++g) {
+             g != indelGroupsByInsDelSeq.end(); ++g) {
 
             vector<BamAlignment>& alignments = g->second;
             vector<IndelAllele> indels = g->first;
@@ -576,25 +580,25 @@ int main (int argc, char** argv) {
                 }
             }
 
-	    unsigned int maxReadNameSize = 0;
+            unsigned int maxReadNameSize = 0;
             for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
-		if (a->Name.size() > maxReadNameSize) {
-		    maxReadNameSize = a->Name.size();
-		}
-	    }
+                if (a->Name.size() > maxReadNameSize) {
+                    maxReadNameSize = a->Name.size();
+                }
+            }
 
             stringstream refposs;
             refposs << firstpos;
             string refpos = refposs.str();
             if (visualize) {
-		cout << string(5 + maxReadNameSize - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
-	    }
+                cout << string(5 + maxReadNameSize - refpos.size(), ' ') << refpos << "   " << refseq << "   " << lastpos << endl;
+            }
 
             map<string, vector<string> > alignmentsBySample;
             for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
                 stringstream cigar;
                 for (vector<CigarOp>::const_iterator cigarIter = a->CigarData.begin();
-                        cigarIter != a->CigarData.end(); ++cigarIter) {
+                     cigarIter != a->CigarData.end(); ++cigarIter) {
                     cigar << cigarIter->Length << cigarIter->Type;
                 }
                 //string cigarstr = cigar.str();
@@ -607,21 +611,21 @@ int main (int argc, char** argv) {
                 if (pad < 0) pad = 1;
                 stringstream alstr;
                 alstr << a->Name << (a->IsFirstMate() ? ".1" : ".2") << (a->IsReverseStrand() ? " -" : " +") << string(pad, ' ')
-                     << string(pos - firstpos, ' ') << a->AlignedBases;
+                      << string(pos - firstpos, ' ') << a->AlignedBases;
                 alignmentsBySample[samplename].push_back(alstr.str());
             }
 
-	    if (visualize) {
-		for (map<string, vector<string> >::iterator s = alignmentsBySample.begin(); s != alignmentsBySample.end(); ++s) {
-		    const string& sampleName = s->first;
-		    vector<string>& aligns = s->second;
-		    cout << endl;
-		    cout << sampleName << endl;
-		    for (vector<string>::iterator a = aligns.begin(); a != aligns.end(); ++a) {
-			cout << *a << endl;
-		    }
-		}
-	    }
+            if (visualize) {
+                for (map<string, vector<string> >::iterator s = alignmentsBySample.begin(); s != alignmentsBySample.end(); ++s) {
+                    const string& sampleName = s->first;
+                    vector<string>& aligns = s->second;
+                    cout << endl;
+                    cout << sampleName << endl;
+                    for (vector<string>::iterator a = aligns.begin(); a != aligns.end(); ++a) {
+                        cout << *a << endl;
+                    }
+                }
+            }
 
             cout << endl;
 
@@ -633,7 +637,7 @@ int main (int argc, char** argv) {
         AlignmentAlleleGrouping::iterator biggestGroup = indelGroupsByInsDelSeq.begin();
 
         for (AlignmentAlleleGrouping::iterator g = indelGroupsByInsDelSeq.begin();
-                g != indelGroupsByInsDelSeq.end(); ++g) {
+             g != indelGroupsByInsDelSeq.end(); ++g) {
 
             vector<BamAlignment>& alignments = g->second;
             vector<IndelAllele> indels = g->first;
@@ -710,16 +714,16 @@ int main (int argc, char** argv) {
 
 	// create a new Smith-Waterman alignment object
     if (bandwidth > 0) {
-        pair< pair<unsigned int, unsigned int>, pair<unsigned int, unsigned int> > hr;
-        hr.first.first   = 5;
-        hr.first.second  = 13;
-        hr.second.first  = 0;
-        hr.second.second = 8;
-        CBandedSmithWaterman bsw(matchScore, mismatchScore, gapOpenPenalty, gapExtendPenalty, bandwidth);
-        bsw.Align(referencePos, cigar, reference, referenceLen, query, queryLen, hr);
+    pair< pair<unsigned int, unsigned int>, pair<unsigned int, unsigned int> > hr;
+    hr.first.first   = 5;
+    hr.first.second  = 13;
+    hr.second.first  = 0;
+    hr.second.second = 8;
+    CBandedSmithWaterman bsw(matchScore, mismatchScore, gapOpenPenalty, gapExtendPenalty, bandwidth);
+    bsw.Align(referencePos, cigar, reference, referenceLen, query, queryLen, hr);
     } else {
-        CSmithWatermanGotoh sw(matchScore, mismatchScore, gapOpenPenalty, gapExtendPenalty);
-        sw.Align(referencePos, cigar, reference, referenceLen, query, queryLen);
+    CSmithWatermanGotoh sw(matchScore, mismatchScore, gapOpenPenalty, gapExtendPenalty);
+    sw.Align(referencePos, cigar, reference, referenceLen, query, queryLen);
     }
 
     printf("%s %3u\n", cigar.c_str(), referencePos);
@@ -727,36 +731,36 @@ int main (int argc, char** argv) {
     */
 
     /*
-    if (output_fastq) {
+      if (output_fastq) {
 
-        for (map<int, vector<BamAlignment> >::iterator va = indelGroups.begin(); va != indelGroups.end(); ++va) {
-            int indelClass = va->first;
-            vector<BamAlignment>& alignments = va->second;
-            ofstream outputFile;
-            outputFile.open((output_prefix + "." + indelClassStr(indelClass) + ".fq").c_str());
-            for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
-                writeFastq(outputFile, *a);
-            }
-            outputFile.close();
-        }
+      for (map<int, vector<BamAlignment> >::iterator va = indelGroups.begin(); va != indelGroups.end(); ++va) {
+      int indelClass = va->first;
+      vector<BamAlignment>& alignments = va->second;
+      ofstream outputFile;
+      outputFile.open((output_prefix + "." + indelClassStr(indelClass) + ".fq").c_str());
+      for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
+      writeFastq(outputFile, *a);
+      }
+      outputFile.close();
+      }
 
-    } else {
+      } else {
 
-        const string headerText = reader.GetHeaderText();
-        RefVector references = reader.GetReferenceData();
+      const string headerText = reader.GetHeaderText();
+      RefVector references = reader.GetReferenceData();
 
-        for (map<int, vector<BamAlignment> >::iterator va = indelGroups.begin(); va != indelGroups.end(); ++va) {
-            int indelClass = va->first;
-            vector<BamAlignment>& alignments = va->second;
-            BamWriter writer;
-            writer.Open(output_prefix + "." + indelClassStr(indelClass) + ".bam", headerText, references);
-            for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
-                writer.SaveAlignment(*a);
-            }
-            writer.Close();
-        }
+      for (map<int, vector<BamAlignment> >::iterator va = indelGroups.begin(); va != indelGroups.end(); ++va) {
+      int indelClass = va->first;
+      vector<BamAlignment>& alignments = va->second;
+      BamWriter writer;
+      writer.Open(output_prefix + "." + indelClassStr(indelClass) + ".bam", headerText, references);
+      for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
+      writer.SaveAlignment(*a);
+      }
+      writer.Close();
+      }
 
-    }
+      }
     */
 
     reader.Close();
