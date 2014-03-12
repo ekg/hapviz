@@ -565,11 +565,13 @@ int main (int argc, char** argv) {
 
             cout << alignments.size() << " " << indelseq << endl;
             BamAlignment& firstAlignment = alignments.front();
-            int firstpos = firstAlignment.Position;
-            int lastpos = firstAlignment.GetEndPosition();
+            int firstpos = firstAlignment.Position - (firstAlignment.CigarData.front().Type == 'S' ? firstAlignment.CigarData.front().Length : 0);
+            int lastpos = firstAlignment.Position + firstAlignment.AlignedBases.size() + (firstAlignment.CigarData.back().Type == 'S' ? firstAlignment.CigarData.back().Length : 0);
             for (vector<BamAlignment>::iterator a = alignments.begin(); a != alignments.end(); ++a) {
-                if (a->GetEndPosition() > lastpos)
-                    lastpos = a->GetEndPosition();
+                int scend = (a->CigarData.back().Type == 'S' ? a->CigarData.back().Length : 0);
+                if ((a->GetEndPosition() + scend) > lastpos) {
+                    lastpos = a->GetEndPosition() + scend;
+                }
             }
             int offset = 0;
             string refseq = reference.getSubSequence(referenceIDToName[firstAlignment.RefID], firstpos, lastpos - firstpos + 1);
@@ -607,11 +609,21 @@ int main (int argc, char** argv) {
                 int pos = a->Position;
                 string& samplename = readGroupToSampleNames[readGroup];
                 // hacky...
+                // check for start and end soft clips
                 int pad = (maxReadNameSize) - a->Name.size() +4;
+                int startingSoftClip = (a->CigarData.front().Type == 'S' ? a->CigarData.front().Length : 0);
+                int endingSoftClip = (a->CigarData.back().Type == 'S' ? a->CigarData.back().Length : 0);
                 if (pad < 0) pad = 1;
                 stringstream alstr;
+                string softClipStart = a->QueryBases.substr(0, startingSoftClip);
+                transform(softClipStart.begin(), softClipStart.end(), softClipStart.begin(), ::tolower);
+                string softClipEnd = a->QueryBases.substr(a->QueryBases.size() - endingSoftClip);
+                transform(softClipEnd.begin(), softClipEnd.end(), softClipEnd.begin(), ::tolower);
                 alstr << a->Name << (a->IsFirstMate() ? ".1" : ".2") << (a->IsReverseStrand() ? " -" : " +") << string(pad, ' ')
-                      << string(pos - firstpos, ' ') << a->AlignedBases;
+                      << string(max(0, pos - firstpos - startingSoftClip), ' ')
+                      << softClipStart
+                      << a->AlignedBases
+                      << softClipEnd;
                 alignmentsBySample[samplename].push_back(alstr.str());
             }
 
